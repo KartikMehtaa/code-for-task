@@ -44,14 +44,14 @@
     "db:schema:format": "prisma format",
     "db:schema:validate": "prisma validate",
     "db:client:generate": "prisma generate",
-    "db:migration:create": "prisma migrate dev --create-only",
+    "db:migration:create": "prisma migrate dev --name init",
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:reset": "prisma migrate reset --skip-seed",
     "postdb:migrate:reset": "npm run db:init",
     "db:migrate:deploy": "prisma migrate deploy"
   },
   "engines": {
-    "node": "^24"
+    "node": "^22"
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
@@ -116,6 +116,7 @@
     "@types/passport-local": "^1.0.38",
     "@types/pug": "^2.0.10",
     "@types/supertest": "^6.0.3",
+    "@types/triple-beam": "^1.3.5",
     "@typescript-eslint/eslint-plugin": "^8.48.1",
     "@typescript-eslint/parser": "^8.48.1",
     "eslint": "^9.39.1",
