@@ -32,8 +32,8 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
     command: --wiredTigerCacheSizeGB 0.25
     volumes:
-      - ${MONGO_DATA_VOLUME}/db:/data/db
-      - ${MONGO_DATA_VOLUME}/configdb:/data/configdb
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
   nestjs-app:
     image: nestjs-app-${APP_ENV}-${NODE_TYPE}
     build:
@@ -59,6 +59,13 @@ services:
       driver: json-file
       options:
         max-size: "10m"
+volumes:
+  post-data:
+  redis-data:
+  mongo-data:
+  mongo-config:
+  storage:  
 networks:
   default:
     name: nestjs-app
+

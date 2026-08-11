@@ -75,11 +75,16 @@ async function bootstrap() {
     app.use(cookieParser());
     app.use(
       helmet({
-        crossOriginResourcePolicy: {
-          policy: utilsService.isProductionApp() ? 'same-site' : 'cross-origin',
-        },
-      }),
-    );
+        contentSecurityPolicy: {
+          directives: {
+            upgradeInsecureRequests: null,
+      },
+    },
+    crossOriginResourcePolicy: {
+      policy: utilsService.isProductionApp() ? 'same-site' : 'cross-origin',
+    },
+  }),
+);
     app.enableShutdownHooks();
     app.useStaticAssets(
       path.join(process.cwd(), configService.get('STORAGE_DIR')),
