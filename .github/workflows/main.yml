@@ -1,0 +1,75 @@
+name: Production Deployment
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - main
+
+jobs:
+  deployment:
+    name: Deploy on remote server
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Install SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          ssh-keyscan -H "${{ vars.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy to EC2
+        run: |
+          ssh "${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}" << 'EOF'
+
+            set -e
+
+            echo "Connected to EC2"
+
+            # Clone if project does not exist
+            if [ ! -d "${{ vars.PROD_WORK_DIR }}/.git" ]; then
+
+              echo "Project not found. Cloning..."
+
+              mkdir -p "$(dirname "${{ vars.PROD_WORK_DIR }}")"
+
+              git clone \
+                -b main \
+                "${{ vars.REPO_URL }}" \
+                "${{ vars.PROD_WORK_DIR }}"
+
+            else
+
+              echo "Project exists. Pulling latest code..."
+
+              cd "${{ vars.PROD_WORK_DIR }}"
+
+              git checkout main
+              git pull origin main
+
+            fi
+
+            cd "${{ vars.PROD_WORK_DIR }}"
+
+            echo "Starting Docker Compose deployment..."
+
+            docker compose down
+
+            docker compose up -d --build
+
+            echo "Checking containers..."
+
+            docker compose ps
+
+          EOF
+
+      - name: Cleanup SSH keys
+        if: always()
+        run: |
+          rm -rf ~/.ssh
