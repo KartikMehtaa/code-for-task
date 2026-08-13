@@ -1,33 +1,98 @@
-name: Test Deployment
+name: Production Deployment
 
 on:
   workflow_dispatch:
+
   push:
     branches:
-      - develop
+      - main
 
 jobs:
   deployment:
     name: Deploy on remote server
     runs-on: ubuntu-latest
+
     steps:
-      - name: Install SSH keys
+
+      # 1. Configure SSH
+      - name: Install SSH key
         run: |
-          install -m 600 -D /dev/null ~/.ssh/id_rsa
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ vars.SSH_HOST }} > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_rsa
 
-      - name: Connect and run commands
+          ssh-keyscan -H "${{ vars.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      # 2. Connect to EC2 and deploy
+      - name: Deploy to EC2
         run: |
-          ssh ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }} \
-          "cd ${{ vars.TEST_WORK_DIR }} \
-          && export NVM_DIR=~/.nvm \
-          && source ~/.nvm/nvm.sh \
-          && git checkout develop \
-          && git pull \
-          && npm run db:schema:push \
-          && npm run prod \
-          && exit"
+          ssh "${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}" << 'EOF'
 
-      - name: Cleanup
-        run: rm -rf ~/.ssh
+            set -e
+
+            echo "Connected to EC2"
+
+            # Load NVM
+            export NVM_DIR="$HOME/.nvm"
+
+            if [ -f "$NVM_DIR/nvm.sh" ]; then
+              source "$NVM_DIR/nvm.sh"
+            else
+              echo "NVM not found"
+              exit 1
+            fi
+
+            echo "Node version:"
+            node -v
+
+            echo "NPM version:"
+            npm -v
+
+            # Clone repository if project does not exist
+            if [ ! -d "${{ vars.PROD_WORK_DIR }}/.git" ]; then
+
+              echo "Project not found. Cloning repository..."
+
+              mkdir -p "$(dirname "${{ vars.PROD_WORK_DIR }}")"
+
+              git clone \
+                -b main \
+                "${{ vars.REPO_URL }}" \
+                "${{ vars.PROD_WORK_DIR }}"
+
+            else
+
+              echo "Project already exists."
+
+              cd "${{ vars.PROD_WORK_DIR }}"
+
+              git checkout main
+
+              git pull origin main
+
+            fi
+
+            # Go to project
+            cd "${{ vars.PROD_WORK_DIR }}"
+
+            echo "Installing dependencies..."
+
+            npm install
+
+            echo "Updating database schema..."
+
+            npm run db:schema:push
+
+            echo "Starting production application..."
+
+            npm run prod
+
+          EOF
+
+      # 3. Remove SSH key from GitHub runner
+      - name: Cleanup SSH keys
+        if: always()
+        run: |
+          rm -rf ~/.ssh
