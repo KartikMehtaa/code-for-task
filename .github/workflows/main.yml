@@ -9,12 +9,15 @@ on:
 
 jobs:
   deployment:
-    name: Deploy on remote server
+    name: Deploy on EC2
     runs-on: ubuntu-latest
 
     steps:
 
-      - name: Install SSH key
+      # ==============================
+      # 1. Setup SSH
+      # ==============================
+      - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
@@ -24,18 +27,27 @@ jobs:
 
           ssh-keyscan -H "${{ vars.SSH_HOST }}" >> ~/.ssh/known_hosts
 
+      # ==============================
+      # 2. Deploy Application
+      # ==============================
       - name: Deploy to EC2
         run: |
           ssh "${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}" << 'EOF'
 
             set -e
 
+            echo "======================================"
             echo "Connected to EC2"
+            echo "======================================"
 
-            # Clone if project does not exist
+            # --------------------------------
+            # Clone repository if not present
+            # --------------------------------
+
             if [ ! -d "${{ vars.PROD_WORK_DIR }}/.git" ]; then
 
-              echo "Project not found. Cloning..."
+              echo "Repository not found."
+              echo "Cloning repository..."
 
               mkdir -p "$(dirname "${{ vars.PROD_WORK_DIR }}")"
 
@@ -46,31 +58,80 @@ jobs:
 
             else
 
-              echo "Project exists. Pulling latest code..."
+              echo "Repository already exists."
+              echo "Pulling latest code..."
 
               cd "${{ vars.PROD_WORK_DIR }}"
 
               git checkout main
               git pull origin main
 
-
             fi
 
-            cd "${{ vars.PROD_WORK_DIR }}"
+            # --------------------------------
+            # Go to application directory
+            # --------------------------------
 
-            echo "Starting Docker Compose deployment..."
+            cd "${{ vars.PROD_WORK_DIR }}/nestjs-server-template-main"
 
-            docker compose down
+            echo "======================================"
+            echo "Application Directory"
+            echo "======================================"
+
+            pwd
+
+            echo "======================================"
+            echo "Application Files"
+            echo "======================================"
+
+            ls -la
+
+            # --------------------------------
+            # Check Docker
+            # --------------------------------
+
+            echo "======================================"
+            echo "Docker Version"
+            echo "======================================"
+
+            docker --version
+
+            echo "======================================"
+            echo "Docker Compose Version"
+            echo "======================================"
+
+            docker compose version
+
+            # --------------------------------
+            # Deploy Docker Compose
+            # --------------------------------
+
+            echo "======================================"
+            echo "Building and Starting Containers"
+            echo "======================================"
 
             docker compose up -d --build
 
-            echo "Checking containers..."
+            # --------------------------------
+            # Show container status
+            # --------------------------------
+
+            echo "======================================"
+            echo "Container Status"
+            echo "======================================"
 
             docker compose ps
 
+            echo "======================================"
+            echo "Deployment Completed"
+            echo "======================================"
+
           EOF
 
-      - name: Cleanup SSH keys
+      # ==============================
+      # 3. Cleanup
+      # ==============================
+      - name: Cleanup SSH
         if: always()
         run: |
           rm -rf ~/.ssh
