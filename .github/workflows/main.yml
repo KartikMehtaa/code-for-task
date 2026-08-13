@@ -53,6 +53,7 @@ jobs:
               git checkout main
               git pull origin main
 
+
             fi
 
             cd "${{ vars.PROD_WORK_DIR }}"
