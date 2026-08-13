@@ -14,7 +14,6 @@ jobs:
 
     steps:
 
-      # 1. Configure SSH
       - name: Install SSH key
         run: |
           mkdir -p ~/.ssh
@@ -25,7 +24,6 @@ jobs:
 
           ssh-keyscan -H "${{ vars.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      # 2. Connect to EC2 and deploy
       - name: Deploy to EC2
         run: |
           ssh "${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}" << 'EOF'
@@ -34,26 +32,10 @@ jobs:
 
             echo "Connected to EC2"
 
-            # Load NVM
-            export NVM_DIR="$HOME/.nvm"
-
-            if [ -f "$NVM_DIR/nvm.sh" ]; then
-              source "$NVM_DIR/nvm.sh"
-            else
-              echo "NVM not found"
-              exit 1
-            fi
-
-            echo "Node version:"
-            node -v
-
-            echo "NPM version:"
-            npm -v
-
-            # Clone repository if project does not exist
+            # Clone if project does not exist
             if [ ! -d "${{ vars.PROD_WORK_DIR }}/.git" ]; then
 
-              echo "Project not found. Cloning repository..."
+              echo "Project not found. Cloning..."
 
               mkdir -p "$(dirname "${{ vars.PROD_WORK_DIR }}")"
 
@@ -64,34 +46,29 @@ jobs:
 
             else
 
-              echo "Project already exists."
+              echo "Project exists. Pulling latest code..."
 
               cd "${{ vars.PROD_WORK_DIR }}"
 
               git checkout main
-
               git pull origin main
 
             fi
 
-            # Go to project
             cd "${{ vars.PROD_WORK_DIR }}"
 
-            echo "Installing dependencies..."
+            echo "Starting Docker Compose deployment..."
 
-            npm install
+            docker compose down
 
-            echo "Updating database schema..."
+            docker compose up -d --build
 
-            npm run db:schema:push
+            echo "Checking containers..."
 
-            echo "Starting production application..."
-
-            npm run prod
+            docker compose ps
 
           EOF
 
-      # 3. Remove SSH key from GitHub runner
       - name: Cleanup SSH keys
         if: always()
         run: |
